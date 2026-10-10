@@ -4,7 +4,7 @@ from groq import Groq
 # Initialize the Groq client (ensure your GROQ_API_KEY environment variable is set)
 part1 = ("gsk_")
 part2 = ("TdYOL6A1kuVwhlqZDgDUWGdyb3FYGBoAaExZNH9vwLwbLDHnQuoV")
-client = Groq(api key=part1 + part2)
+client = Groq(api_key=part1 + part2)
 MODEL = "llama-3.3-70b-versatile"
 
 st.title("=== Exegesis AI ===")
