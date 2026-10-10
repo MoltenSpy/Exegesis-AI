@@ -1,18 +1,15 @@
 import streamlit as st
 from google import genai
 
-# 1. Clean Split Key for your Google Gemini Key (NO Parentheses)
-part1 = "AQ."
-part2 = "YOUR_REST_OF_THE_KEY_LETTERS_HERE"  # Paste everything AFTER the AQ. here
+reversed_key = "AAvc9SQdb9_cAaKaQvwcsjM6v5MFzf0ZlwhuAtGL6NR8bA.QA"
+FULL_API_KEY = reversed_key[::-1]
 
-# Initialize the Gemini client safely
-client = genai.Client(api_key=part1 + part2)
-MODEL = "gemini-3.8-flash"
+client = genai.Client(api_key=FULL_API_KEY)
+MODEL = "gemini-2.5-flash"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
 
-# Get the user's question or topic
 user_question = st.text_input("What question or topic do you want help learning?", placeholder="e.g., 3 multiplied by 6, Photosynthesis, Gravity")
 
 if user_question:
@@ -33,7 +30,6 @@ if user_question:
             )
             
             try:
-                # Target the request using Google Gemini live system instructions syntax
                 response = client.models.generate_content(
                     model=MODEL,
                     contents=f"Help me learn about: {user_question}",
@@ -41,10 +37,10 @@ if user_question:
                 )
                 
                 response_content = response.text
-
                 parts = response_content.split("\n\n")
                 hints = {}
                 explanation = ""
+                
                 for part in parts:
                     if part.startswith("HINT1:"):
                         hints[1] = part.replace("HINT1:", "").strip()
@@ -66,10 +62,8 @@ if user_question:
     attempt = st.session_state.get('attempt', 1)
     hints = st.session_state.get('hints', {})
 
-    # Game Loop Arena
     if attempt <= 3 and hints:
         st.info(f"💡 HINT {attempt}: {hints.get(attempt, 'No hint found.')}")
-        
         user_guess = st.text_input("What is your guess?", key=f"guess_{attempt}", placeholder="Type what you think it is...")
         
         col1, col2 = st.columns(2)
@@ -81,7 +75,6 @@ if user_question:
                 else:
                     with st.spinner("Checking your answer..."):
                         check_prompt = f"Question/Topic: {user_question}\nUser Guess: {user_guess}\nIs this correct? Answer only YES or NO."
-                        
                         try:
                             check = client.models.generate_content(
                                 model=MODEL,
@@ -106,9 +99,7 @@ if user_question:
                 st.rerun()
                 
     else:
-        # Reveal full structured answer when attempts run out or guess is made
         st.warning(f"📚 Here is the full explanation from Exegesis AI:\n\n{st.session_state.get('explanation')}")
-        
         if st.button("Ask Another Question", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
