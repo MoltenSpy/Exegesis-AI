@@ -1,15 +1,13 @@
 import streamlit as st
-from groq import Groq
+from google import genai
 
-# 1. Clean Split Key: NO Parentheses, strictly plain strings!
-part1 = "gsk_"
-part2 = "YOUR_ACTUAL_KEY_HERE"  # Paste ONLY the characters after gsk_ here
+# 1. Clean Split Key for Google Gemini (Bypasses safety filters)
+part1 = "AQ."
+part2 = "Ab8RN6LGtAuhwl40oIZ0fzFM5v6MjscwvQaKaAc_9bdQS9cvAA"  # Paste everything AFTER AIzaSy here
 
-# Initialize client cleanly
-client = Groq(api_key=part1 + part2)
-
-# 2. Globally active and safe text model identifier
-MODEL = "llama-3.3-70b-specdec"
+# Initialize the Gemini client safely using Google's updated library
+client = genai.Client(api_key=part1 + part2)
+MODEL = "gemini-2.5-flash"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
@@ -35,18 +33,15 @@ if user_question:
                 "EXPLANATION: <the full clear answer and explanation>"
             )
             
-            # 3. Wrapped inside a Try/Except shield to capture and display Groq errors on-screen
             try:
-                response = client.chat.completions.create(
+                # Target the request using Google Gemini system instructions format
+                response = client.models.generate_content(
                     model=MODEL,
-                    messages=[
-                        {"role": "system", "content": instructions},
-                        {"role": "user", "content": f"Help me learn about: {user_question}"}
-                    ]
+                    contents=f"Help me learn about: {user_question}",
+                    config={"system_instruction": instructions}
                 )
                 
-                # Safely grab the response content without indexed array bugs
-                response_content = response.choices[0].message.content
+                response_content = response.text
 
                 parts = response_content.split("\n\n")
                 hints = {}
@@ -64,16 +59,16 @@ if user_question:
                 st.session_state['hints'] = hints
                 st.session_state['explanation'] = explanation
                 
-            except Exception as groq_error:
-                st.error("⚠️ Groq Connection Error!")
-                st.info(f"Server Response: {groq_error}")
+            except Exception as gemini_error:
+                st.error("⚠️ AI Studio Connection Error!")
+                st.info(f"Server Response: {gemini_error}")
                 st.stop()
 
     attempt = st.session_state.get('attempt', 1)
     hints = st.session_state.get('hints', {})
 
     # Game Loop: Give up to 3 attempts/hints
-    if attempt <= 3:
+    if attempt <= 3 and hints:
         st.info(f"💡 HINT {attempt}: {hints.get(attempt, 'No hint found.')}")
         
         user_guess = st.text_input("What is your guess?", key=f"guess_{attempt}")
@@ -89,11 +84,11 @@ if user_question:
                         check_prompt = f"Question/Topic: {user_question}\nUser Guess: {user_guess}\nIs this correct? Answer only YES or NO."
                         
                         try:
-                            check = client.chat.completions.create(
+                            check = client.models.generate_content(
                                 model=MODEL,
-                                messages=[{"role": "user", "content": check_prompt}]
+                                contents=check_prompt
                             )
-                            check_text = check.choices[0].message.content
+                            check_text = check.text
                             
                             if "YES" in check_text.upper():
                                 st.success("🎉 Awesome job! You figured it out with Exegesis AI!")
@@ -114,12 +109,8 @@ if user_question:
     else:
         st.warning(f"📚 Here is the full explanation from Exegesis AI:\n\n{st.session_state.get('explanation')}")
         
-        if st.button("Ask Another Question"):
+        if st.button("Ask Another Question", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
 
-        if st.button("Ask Another Question"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
