@@ -7,7 +7,7 @@ part2 = "Ab8RN6LGtAuhwl40oIZ0fzFM5v6MjscwvQaKaAc_9bdQS9cvAA"  # Paste everything
 
 # Initialize the Gemini client safely using Google's updated library
 client = genai.Client(api_key=part1 + part2)
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
