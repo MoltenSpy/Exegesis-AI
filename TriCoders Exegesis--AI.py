@@ -1,11 +1,11 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 
-reversed_key = "AAvc9SQdb9_cAaKaQvwcsjM6v5MFzf0ZlwhuAtGL6NR8bA.QA"
+reversed_key = "AAvc9SQdb9_cAaKaQvwcsjM6v5MFzf0ZIo04lwhuAtGL6NR8bA."
 FULL_API_KEY = reversed_key[::-1]
 
-client = genai.Client(api_key=FULL_API_KEY)
-MODEL = "gemini-2.5-flash"
+genai.configure(api_key=FULL_API_KEY)
+MODEL = "gemini-1.5-flash"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
@@ -30,11 +30,11 @@ if user_question:
             )
             
             try:
-                response = client.models.generate_content(
-                    model=MODEL,
-                    contents=f"Help me learn about: {user_question}",
-                    config={"system_instruction": instructions}
+                model = genai.GenerativeModel(
+                    model_name=MODEL,
+                    system_instruction=instructions
                 )
+                response = model.generate_content(f"Help me learn about: {user_question}")
                 
                 response_content = response.text
                 parts = response_content.split("\n\n")
@@ -76,10 +76,8 @@ if user_question:
                     with st.spinner("Checking your answer..."):
                         check_prompt = f"Question/Topic: {user_question}\nUser Guess: {user_guess}\nIs this correct? Answer only YES or NO."
                         try:
-                            check = client.models.generate_content(
-                                model=MODEL,
-                                contents=check_prompt
-                            )
+                            model = genai.GenerativeModel(model_name=MODEL)
+                            check = model.generate_content(check_prompt)
                             check_text = check.text
                             
                             if "YES" in check_text.upper():
