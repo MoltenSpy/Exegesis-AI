@@ -1,11 +1,15 @@
 import streamlit as st
 import google.generativeai as genai
+import base64
 
-reversed_key = "AAvc9SQdb9_cAaKaQvwcsjM6v5MFzf0ZIo04lwhuAtGL6NR8bA."
-FULL_API_KEY = reversed_key[::-1]
+# 1. Paste your encoded Base64 string directly inside the quotes below
+encoded_key = "QVEuQWI4Uk42TEd0QXVod2w0MG9JWjBmekZNNXY2TWpzY3d2UWFLYUFjXzliZFFTOWN2QUE="
+
+# Automatically converts it back into the perfect key text instantly
+FULL_API_KEY = base64.b64decode(encoded_key).decode("utf-8").strip()
 
 genai.configure(api_key=FULL_API_KEY)
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-3.8-flash"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
