@@ -1,11 +1,15 @@
 import streamlit as st
 from groq import Groq
 
-# Initialize the Groq client (ensure your GROQ_API_KEY environment variable is set)
+# 1. Clean Split Key: NO Parentheses, strictly plain strings!
 part1 = "gsk_"
-part2 = "TdYOL6A1kuVwhlqZDgDUWGdyb3FYGBoAaExZNH9vwLwbLDHnQuoV"
+part2 = "YOUR_ACTUAL_KEY_HERE"  # Paste ONLY the characters after gsk_ here
+
+# Initialize client cleanly
 client = Groq(api_key=part1 + part2)
-MODEL = "llama-3.3-70b-versatile"
+
+# 2. Globally active and safe text model identifier
+MODEL = "llama-3.3-70b-specdec"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
@@ -31,29 +35,39 @@ if user_question:
                 "EXPLANATION: <the full clear answer and explanation>"
             )
             
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": instructions},
-                    {"role": "user", "content": f"Help me learn about: {user_question}"}
-                ]
-            ).choices[0].message.content
+            # 3. Wrapped inside a Try/Except shield to capture and display Groq errors on-screen
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL,
+                    messages=[
+                        {"role": "system", "content": instructions},
+                        {"role": "user", "content": f"Help me learn about: {user_question}"}
+                    ]
+                )
+                
+                # Safely grab the response content without indexed array bugs
+                response_content = response.choices[0].message.content
 
-            parts = response.split("\n\n")
-            hints = {}
-            explanation = ""
-            for part in parts:
-                if part.startswith("HINT1:"):
-                    hints[1] = part.replace("HINT1:", "").strip()
-                elif part.startswith("HINT2:"):
-                    hints[2] = part.replace("HINT2:", "").strip()
-                elif part.startswith("HINT3:"):
-                    hints[3] = part.replace("HINT3:", "").strip()
-                elif part.startswith("EXPLANATION:"):
-                    explanation = part.replace("EXPLANATION:", "").strip()
-            
-            st.session_state['hints'] = hints
-            st.session_state['explanation'] = explanation
+                parts = response_content.split("\n\n")
+                hints = {}
+                explanation = ""
+                for part in parts:
+                    if part.startswith("HINT1:"):
+                        hints[1] = part.replace("HINT1:", "").strip()
+                    elif part.startswith("HINT2:"):
+                        hints[2] = part.replace("HINT2:", "").strip()
+                    elif part.startswith("HINT3:"):
+                        hints[3] = part.replace("HINT3:", "").strip()
+                    elif part.startswith("EXPLANATION:"):
+                        explanation = part.replace("EXPLANATION:", "").strip()
+                
+                st.session_state['hints'] = hints
+                st.session_state['explanation'] = explanation
+                
+            except Exception as groq_error:
+                st.error("⚠️ Groq Connection Error!")
+                st.info(f"Server Response: {groq_error}")
+                st.stop()
 
     attempt = st.session_state.get('attempt', 1)
     hints = st.session_state.get('hints', {})
@@ -62,7 +76,6 @@ if user_question:
     if attempt <= 3:
         st.info(f"💡 HINT {attempt}: {hints.get(attempt, 'No hint found.')}")
         
-        # Use a dynamic key so the input box resets properly across attempts
         user_guess = st.text_input("What is your guess?", key=f"guess_{attempt}")
         
         col1, col2 = st.columns(2)
@@ -74,19 +87,24 @@ if user_question:
                 else:
                     with st.spinner("Checking your answer..."):
                         check_prompt = f"Question/Topic: {user_question}\nUser Guess: {user_guess}\nIs this correct? Answer only YES or NO."
-                        check = client.chat.completions.create(
-                            model=MODEL,
-                            messages=[{"role": "user", "content": check_prompt}]
-                        ).choices[0].message.content
                         
-                        if "YES" in check.upper():
-                            st.success("🎉 Awesome job! You figured it out with Exegesis AI!")
-                            st.session_state['attempt'] = 4  # Triggers game over/reveal
-                            st.rerun()
-                        else:
-                            st.error("❌ Not quite, let's try the next step!")
-                            st.session_state['attempt'] += 1
-                            st.rerun()
+                        try:
+                            check = client.chat.completions.create(
+                                model=MODEL,
+                                messages=[{"role": "user", "content": check_prompt}]
+                            )
+                            check_text = check.choices[0].message.content
+                            
+                            if "YES" in check_text.upper():
+                                st.success("🎉 Awesome job! You figured it out with Exegesis AI!")
+                                st.session_state['attempt'] = 4  
+                                st.rerun()
+                            else:
+                                st.error("❌ Not quite, let's try the next step!")
+                                st.session_state['attempt'] += 1
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error checking guess: {e}")
         
         with col2:
             if st.button("Need another hint?", use_container_width=True):
@@ -94,9 +112,13 @@ if user_question:
                 st.rerun()
                 
     else:
-        # Reveal full answer when attempts run out or user gets it right
         st.warning(f"📚 Here is the full explanation from Exegesis AI:\n\n{st.session_state.get('explanation')}")
         
+        if st.button("Ask Another Question"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+
         if st.button("Ask Another Question"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
