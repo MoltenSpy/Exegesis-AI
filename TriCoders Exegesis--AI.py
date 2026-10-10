@@ -2,10 +2,9 @@ import streamlit as st
 import google.generativeai as genai
 import base64
 
-# 1. Paste your encoded Base64 string directly inside the quotes below
+# Paste your encoded Base64 string directly inside the quotes below
 encoded_key = "QVEuQWI4Uk42TEd0QXVod2w0MG9JWjBmekZNNXY2TWpzY3d2UWFLYUFjXzliZFFTOWN2QUE="
 
-# Automatically converts it back into the perfect key text instantly
 FULL_API_KEY = base64.b64decode(encoded_key).decode("utf-8").strip()
 
 genai.configure(api_key=FULL_API_KEY)
@@ -39,24 +38,42 @@ if user_question:
                     system_instruction=instructions
                 )
                 response = model.generate_content(f"Help me learn about: {user_question}")
-                
                 response_content = response.text
-                parts = response_content.split("\n\n")
+                
                 hints = {}
                 explanation = ""
                 
-                for part in parts:
-                    if part.startswith("HINT1:"):
-                        hints[1] = part.replace("HINT1:", "").strip()
-                    elif part.startswith("HINT2:"):
-                        hints[2] = part.replace("HINT2:", "").strip()
-                    elif part.startswith("HINT3:"):
-                        hints[3] = part.replace("HINT3:", "").strip()
-                    elif part.startswith("EXPLANATION:"):
-                        explanation = part.replace("EXPLANATION:", "").strip()
-                
+                for line in response_content.splitlines():
+                    line_clean = line.strip()
+                    if line_clean.upper().startswith("HINT1:"):
+                        hints[1] = line_clean[6:].strip()
+                    elif line_clean.upper().startswith("HINT2:"):
+                        hints[2] = line_clean[6:].strip()
+                    elif line_clean.upper().startswith("HINT3:"):
+                        hints[3] = line_clean[6:].strip()
+                    elif line_clean.upper().startswith("EXPLANATION:"):
+                        explanation = line_clean[12:].strip()
+
+                if not hints:
+                    parts = response_content.split("\n\n")
+                    for part in parts:
+                        if part.startswith("HINT1:"): hints[1] = part.replace("HINT1:", "").strip()
+                        elif part.startswith("HINT2:"): hints[2] = part.replace("HINT2:", "").strip()
+                        elif part.startswith("HINT3:"): hints[3] = part.replace("HINT3:", "").strip()
+                        elif part.startswith("EXPLANATION:"): explanation = part.replace("EXPLANATION:", "").strip()
+
+                if 1 not in hints or not hints:
+                    hints[1] = f"Let's break down '{user_question}' step-by-step. What do you think the core idea is?"
+                if 2 not in hints or not hints:
+                    hints[2] = f"Think about the main inputs or definitions of '{user_question}'."
+                if 3 not in hints or not hints:
+                    hints[3] = f"You are looking for the fundamental outcome or solution of '{user_question}'."
+                if not explanation:
+                    explanation = f"Great work practicing! Structured scaffolding lets you conquer complex topics step-by-step!"
+
                 st.session_state['hints'] = hints
                 st.session_state['explanation'] = explanation
+                st.rerun()
                 
             except Exception as gemini_error:
                 st.error("⚠️ AI Studio Connection Error!")
