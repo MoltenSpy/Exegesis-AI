@@ -1,5 +1,13 @@
 import streamlit as st
-import time
+from google import genai
+
+# 1. Clean Split Key for your Google Gemini Key (NO Parentheses)
+part1 = "AQ."
+part2 = "YOUR_REST_OF_THE_KEY_LETTERS_HERE"  # Paste everything AFTER the AQ. here
+
+# Initialize the Gemini client safely
+client = genai.Client(api_key=part1 + part2)
+MODEL = "gemini-3.8-flash"
 
 st.title("=== Exegesis AI ===")
 st.write("Your personal scaffolded learning tutor!")
@@ -11,58 +19,56 @@ if user_question:
     if 'zonal_round_question' not in st.session_state or st.session_state['zonal_round_question'] != user_question:
         st.session_state['zonal_round_question'] = user_question
         st.session_state['attempt'] = 1
+        st.session_state['hints'] = {}
+        st.session_state['explanation'] = ""
         
-        with st.spinner("Exegesis AI is crafting your learning scaffolding..."):
-            time.sleep(1) 
-
-        # Clean up the user input to check for math terms
-        q_clean = user_question.lower().replace(" ", "")
-        
-        # 🧠 SMART RULE ENGINE: Detects math questions and calculates the actual answer!
-        if "multipliedby" in q_clean or "x" in q_clean or "*" in q_clean:
-            # Simple math parser to pull numbers from phrases like "3 multiplied by 6" or "3 x 6"
-            import re
-            numbers = [int(s) for s in re.findall(r'\d+', q_clean)]
+        with st.spinner("Exegesis AI is thinking of a helpful hint..."):
+            instructions = (
+                "You are a helpful tutor using a scaffolding teaching method for Exegesis AI. "
+                "Return your response in EXACTLY this format, separated by double newlines:\n"
+                "HINT1: <a subtle first hint>\n\n"
+                "HINT2: <a more direct second hint>\n\n"
+                "HINT3: <a very obvious third hint>\n\n"
+                "EXPLANATION: <the full clear answer and explanation>"
+            )
             
-            if len(numbers) >= 2:
-                num1, num2 = numbers[0], numbers[1]
-                correct_answer = num1 * num2
+            try:
+                # Target the request using Google Gemini live system instructions syntax
+                response = client.models.generate_content(
+                    model=MODEL,
+                    contents=f"Help me learn about: {user_question}",
+                    config={"system_instruction": instructions}
+                )
                 
-                # Custom Math Scaffolding
-                st.session_state['hints'] = {
-                    1: f"Think about adding the number {num2} to itself {num1} times.",
-                    2: f"It is greater than {correct_answer - 4} but less than {correct_answer + 4}.",
-                    3: f"The exact answer is the product of {num1} and {num2}."
-                }
-                st.session_state['explanation'] = f"The absolute mathematical answer is **{correct_answer}**. Multiplication is simply repeated addition. For example, adding {num2} together {num1} times equals {correct_answer}."
-            else:
-                st.session_state['hints'] = {1: "Think about multiplying the numbers.", 2: "Check your digits.", 3: "Look at the factor blocks."}
-                st.session_state['explanation'] = "Please provide two clear numbers to multiply!"
+                response_content = response.text
 
-        # Science backup rules to look smart for the judges
-        elif "photo" in q_clean:
-            st.session_state['hints'] = {
-                1: "It is a process used exclusively by green plants and organisms.",
-                2: "It transforms solar light energy into stored chemical sugars.",
-                3: "The word combines 'Light' and 'Putting together'."
-            }
-            st.session_state['explanation'] = "The answer is **Photosynthesis**. It is the vital biological mechanism where plants convert sunlight, water, and carbon dioxide into oxygen and energy sugar molecules."
-
-        # Standard baseline rule if they type anything else
-        else:
-            st.session_state['hints'] = {
-                1: f"It involves exploring the core mechanics, active steps, or deep nature of '{user_question}'.",
-                2: f"Think about the primary inputs, structural laws, or basic rules that make '{user_question}' function.",
-                3: f"You are looking for the absolute fundamental concept or building blocks behind '{user_question}'."
-            }
-            st.session_state['explanation'] = f"Great job exploring! '{user_question}' is an excellent concept. Scaffolded study tracks break down its parts so you can master it step-by-step!"
+                parts = response_content.split("\n\n")
+                hints = {}
+                explanation = ""
+                for part in parts:
+                    if part.startswith("HINT1:"):
+                        hints[1] = part.replace("HINT1:", "").strip()
+                    elif part.startswith("HINT2:"):
+                        hints[2] = part.replace("HINT2:", "").strip()
+                    elif part.startswith("HINT3:"):
+                        hints[3] = part.replace("HINT3:", "").strip()
+                    elif part.startswith("EXPLANATION:"):
+                        explanation = part.replace("EXPLANATION:", "").strip()
+                
+                st.session_state['hints'] = hints
+                st.session_state['explanation'] = explanation
+                
+            except Exception as gemini_error:
+                st.error("⚠️ AI Studio Connection Error!")
+                st.info(f"Server Response: {gemini_error}")
+                st.stop()
 
     attempt = st.session_state.get('attempt', 1)
     hints = st.session_state.get('hints', {})
 
     # Game Loop Arena
     if attempt <= 3 and hints:
-        st.info(f"💡 HINT {attempt}: {hints.get(attempt)}")
+        st.info(f"💡 HINT {attempt}: {hints.get(attempt, 'No hint found.')}")
         
         user_guess = st.text_input("What is your guess?", key=f"guess_{attempt}", placeholder="Type what you think it is...")
         
@@ -73,9 +79,26 @@ if user_question:
                 if user_guess.strip() == "":
                     st.warning("Please type a guess before submitting!")
                 else:
-                    st.success("🎉 Activity complete! Let's review the breakdown below:")
-                    st.session_state['attempt'] = 4  
-                    st.rerun()
+                    with st.spinner("Checking your answer..."):
+                        check_prompt = f"Question/Topic: {user_question}\nUser Guess: {user_guess}\nIs this correct? Answer only YES or NO."
+                        
+                        try:
+                            check = client.models.generate_content(
+                                model=MODEL,
+                                contents=check_prompt
+                            )
+                            check_text = check.text
+                            
+                            if "YES" in check_text.upper():
+                                st.success("🎉 Awesome job! You figured it out with Exegesis AI!")
+                                st.session_state['attempt'] = 4  
+                                st.rerun()
+                            else:
+                                st.error("❌ Not quite, let's try the next step!")
+                                st.session_state['attempt'] += 1
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error checking guess: {e}")
         
         with col2:
             if st.button("Need another hint?", use_container_width=True):
