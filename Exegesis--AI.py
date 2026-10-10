@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 
 # Initialize the Groq client (ensure your GROQ_API_KEY environment variable is set)
-client = Groq()
+client = Groq(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)
 MODEL = "llama-3.3-70b-versatile"
 
 st.title("=== Exegesis AI ===")
